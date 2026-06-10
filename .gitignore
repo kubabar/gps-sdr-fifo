@@ -29,6 +29,7 @@
 *.hex
 gps-sdr-sim
 gps-sdr-sim-lut
+gpssdr-dyn
 
 # Debug files
 *.dSYM/
@@ -44,3 +45,6 @@ nbproject/*
 
 # Last used USER_MOTION_SIZE variable
 .user-motion-size
+
+brdc.n
+brdc*.gz

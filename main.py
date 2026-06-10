@@ -319,45 +319,56 @@ class ParameterPrinter(QWidget):
                 sleep(0.1)
     
     def pobierz_efemeryde(self, rok=None, nazwa='brdc.n', last=False):
-        if rok==None:
-            rok=datetime.now().astimezone(timezone.utc).year
-        ftps = FTP_TLS(host = 'gdc.cddis.eosdis.nasa.gov')
-        ftps.login(user='anonymous', passwd="")
-        ftps.prot_p()
-    
-        # ftp://gdc.cddis.eosdis.nasa.gov/pub/gps/data/daily/2023/brdc/brdc3120.23n.gz
-        ftps.cwd(f"/pub/gps/data/daily/{rok}/brdc/")
-        files = ftps.nlst()
+        if not rok:
+            rok = datetime.now().astimezone(timezone.utc).year
 
-        filename = None
-        lastdob = None
-        unzipfn = nazwa
-        unlastdob = "last_" + nazwa
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE  # CDDIS cert can cause issues
 
-        for fn in files[::-1]:
-            if fn[-4:]=='n.gz':
-                if filename == None:
-                    filename = fn
-                    if not last:
+        ftps = FTP_TLS(host='gdc.cddis.eosdis.nasa.gov', context=ctx, timeout=30)
+        try:
+            ftps.login(user='', passwd='')
+            ftps.prot_p()
+            ftps.set_pasv(True)
+
+            # ftp://gdc.cddis.eosdis.nasa.gov/pub/gps/data/daily/2023/brdc/brdc3120.23n.gz
+            ftps.cwd(f"/pub/gps/data/daily/{rok}/brdc")
+            files = ftps.nlst()
+            filename = None
+            lastdob = None
+            unzipfn = nazwa
+            unlastdob = "last_" + nazwa
+            for fn in files[::-1]:
+                if fn[-4:] == 'n.gz':
+                    if filename == None:
+                        filename = fn
+                        if not last:
+                            break
+                    else:
+                        lastdob = fn
                         break
-                else:
-                    lastdob = fn
-                    break
-            
-        if filename == None or lastdob == None and last:
-            print("Nie znalzeiono efemerydy")
-            exit()
 
+            if filename == None or lastdob == None and last:
+                print("Nie znalzeiono efemerydy")
+                return
 
-        ftps.retrbinary("RETR " + filename, open(filename, 'wb').write)
-        with gzip.open(filename, 'rb') as f:
-            with open(unzipfn, 'wb') as uf:
-                uf.write(f.read())
-        if last:
-            ftps.retrbinary("RETR " + lastdob, open(lastdob, 'wb').write)
-            with gzip.open(lastdob, 'rb') as f:
-                with open(unlastdob, 'wb') as uf:
+            ftps.retrbinary("RETR " + filename, open(filename, 'wb').write)
+            with gzip.open(filename, 'rb') as f:
+                with open(unzipfn, 'wb') as uf:
                     uf.write(f.read())
+            if last:
+                ftps.retrbinary("RETR " + lastdob, open(lastdob, 'wb').write)
+                with gzip.open(lastdob, 'rb') as f:
+                    with open(unlastdob, 'wb') as uf:
+                        uf.write(f.read())
+
+        finally:
+            try:
+                ftps.quit()
+            except Exception:
+                ftps.close()
     
     def start_event(self):
         if 1 or self.subprocessgpssim is None or self.subprocessgpssim.poll() is not None:
