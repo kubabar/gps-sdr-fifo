@@ -1379,7 +1379,7 @@ int readUserMotion(double xyz[USER_MOTION_SIZE][3], const char *filename)
 	}
 
 	fclose(fp);
-
+    printf("numd = %i\n\n", numd);
 	return (numd);
 }
 
@@ -1400,7 +1400,7 @@ int readUserMotionLLH(double xyz[USER_MOTION_SIZE][3], const char *filename)
 	if (NULL==(fp=fopen(filename,"rt")))
 		return(-1);
 
-	for (numd=0; numd<USER_MOTION_SIZE; numd++)
+	for (numd=0; numd<1; numd++)
 	{
 		if (fgets(str, MAX_CHAR, fp)==NULL)
 			break;
@@ -1418,7 +1418,7 @@ int readUserMotionLLH(double xyz[USER_MOTION_SIZE][3], const char *filename)
 		llh[0] /= R2D; // convert to RAD
 		llh[1] /= R2D; // convert to RAD
 
-		llh2xyz(llh, xyz[numd]);
+		llh2xyz(llh, xyz[0]);
 	}
 
 	fclose(fp);
@@ -1719,6 +1719,7 @@ int main(int argc, char *argv[])
 	clock_t tstart,tend;
 
 	FILE *fp;
+	
 
 	int sv;
 	int neph,ieph;
@@ -1793,6 +1794,7 @@ int main(int argc, char *argv[])
 	duration = (double)iduration/10.0; // Default duration
 	verb = FALSE;
 	ionoutc.enable = TRUE;
+	
 
 	if (argc<3)
 	{
@@ -1927,7 +1929,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "ERROR: Invalid duration.\n");
 		exit(1);
 	}
-	iduration = (int)(duration*10.0 + 0.5);
+	iduration = (int)(duration*10.0);
 
 	// Buffer size	
 	samp_freq = floor(samp_freq/10.0);
@@ -1935,6 +1937,10 @@ int main(int argc, char *argv[])
 	samp_freq *= 10.0;
 
 	delt = 1.0/samp_freq;
+	
+	FILE *fpff;
+	if (NULL==(fpff=fopen(umfile,"rt")))
+		return(-1);
 
 	////////////////////////////////////////////////////////////
 	// Receiver position
@@ -1946,7 +1952,7 @@ int main(int argc, char *argv[])
 		if (nmeaGGA==TRUE)
 			numd = readNmeaGGA(xyz, umfile);
 		else if (umLLH == TRUE)
-			numd = readUserMotionLLH(xyz, umfile);
+			numd = 10000;//readUserMotionLLH(xyz, umfile);
 		else
 			numd = readUserMotion(xyz, umfile);
 
@@ -1962,7 +1968,7 @@ int main(int argc, char *argv[])
 		}
 
 		// Set simulation duration
-		if (numd>iduration)
+		//if (numd>iduration)
 			numd = iduration;
 
 		// Set user initial position
@@ -2218,6 +2224,24 @@ int main(int argc, char *argv[])
 
 	for (iumd=1; iumd<numd; iumd++)
 	{
+	
+	double t,llh[3];
+	char strff[MAX_CHAR];
+	
+	if (fgets(strff, MAX_CHAR, fpff)==NULL)
+			break;
+	
+	if (EOF==sscanf(strff, "%lf,%lf,%lf,%lf", &t, &llh[0], &llh[1], &llh[2])) // Read CSV line
+        break; //printf("eof while reading csv");
+
+		llh[0] /= R2D; // convert to RAD
+		llh[1] /= R2D; // convert to RAD
+
+		llh2xyz(llh, xyz[0]);
+	
+	
+	
+	
 		for (i=0; i<MAX_CHAN; i++)
 		{
 			if (chan[i].prn>0)
@@ -2228,7 +2252,7 @@ int main(int argc, char *argv[])
 
 				// Current pseudorange
 				if (!staticLocationMode)
-					computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[iumd]);
+					computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[0]);
 				else
 					computeRange(&rho, eph[ieph][sv], &ionoutc, grx, xyz[0]);
 
@@ -2395,7 +2419,7 @@ int main(int argc, char *argv[])
 
 			// Update channel allocation
 			if (!staticLocationMode)
-				allocateChannel(chan, eph[ieph], ionoutc, grx, xyz[iumd], elvmask);
+				allocateChannel(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
 			else
 				allocateChannel(chan, eph[ieph], ionoutc, grx, xyz[0], elvmask);
 
